@@ -64,7 +64,8 @@ Each request loads the model fresh and builds one context of `contextSize` token
 ## Known Limitations and Deferred Work
 
 - **Text-only, no tool calls** — the adapter renders text content and emits text chunks only; tool-call chunks from `GenerateOptions.tools` are not produced, so sessions routed to `local` cannot drive the harness's tool surface.
-- **One message renders per request** — only the final message's text enters the prompt; full conversation history is not re-rendered, so multi-turn context beyond the harness-managed prompt is not visible to the model.
+- **History renders as labeled paragraphs** — non-system messages become `User: `/`Assistant: `/`Tool result: ` paragraphs; non-text content blocks contribute nothing.
 - **Model reload per request** — every `stream` call loads the GGUF and allocates a fresh context; repeated requests pay model-load latency and no weights are cached in memory.
+- **No usage accounting** — the adapter emits no `usage` chunk, so token metering attributes no cost to `local` requests.
 - **No resumable downloads** — a failed or cancelled download restarts from zero (spec out-of-scope decision).
 - **CPU-only inference** — `gpu: false` is pinned; the vulkan backend hung on init in the spike environment and GPU offload is out of scope.

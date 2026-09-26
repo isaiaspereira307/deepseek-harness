@@ -220,6 +220,10 @@ export default defineConfig({
         'packages/self-modification/*/src/**/*.{ts,tsx}',
         // A killed executable lint-contract test can leave a non-product source probe behind.
         'packages/*/*/src/oxlint-contract-*.ts',
+        // node-llama-cpp glue executes only with a real GGUF binary on disk
+        // (validated by the recorded toolchain spike); the LocalSession seam
+        // it returns is unit-tested with doubles.
+        'packages/llm/llm-local/src/llama.ts',
         // Client/web UI files whose remaining branches need a browser-grade
         // harness the jsdom lane doesn't cover yet. TODO(gui): cover and
         // remove as the client test lane matures.
