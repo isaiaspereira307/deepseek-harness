@@ -50,6 +50,9 @@ allowBuilds:
   electron-winstaller: false
   # Store-index rewriting only needs msgpackr's portable JavaScript codec.
   msgpackr-extract: false
+  # Vendored llama.cpp prebuilds for the local provider; the postinstall
+  # fetches the platform binaries the inference addon loads from disk.
+  node-llama-cpp: true
 
 minimumReleaseAgeExclude:
   # Office engines and their API are qualified and released together by the kit repository.
