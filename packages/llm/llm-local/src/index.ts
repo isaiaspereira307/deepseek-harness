@@ -10,9 +10,10 @@ export {
   LocalModelsConfigSchema,
 } from './service.ts'
 export type { DownloadFn, LocalModelsConfig } from './service.ts'
+export type { ModelStatusEntry } from './types.ts'
 export { CATALOG, catalogEntry } from './catalog.ts'
 export { recommendModel } from './recommend.ts'
-export type { Recommendation } from './recommend.ts'
+export type { Recommendation } from './types.ts'
 export type { ModelCatalogEntry } from './types.ts'
 
 export { LocalModels as default } from './service.ts'

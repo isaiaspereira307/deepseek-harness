@@ -68,6 +68,17 @@ describe('LocalModels', () => {
     expect(service.listCatalog()).toEqual(CATALOG)
   })
 
+  it('lists per-model status joined with the catalog and the active id', async () => {
+    const service = await harness()
+    await service.startDownload('qwen3.5-0.8b-q4_0')
+    await service.setActive('qwen3.5-0.8b-q4_0')
+    const status = service.listStatus()
+    expect(status).toEqual([
+      { modelId: 'qwen3.5-0.8b-q4_0', status: 'ready', downloadedBytes: CATALOG[0]!.sizeBytes, active: true },
+      { modelId: 'qwen3.5-4b-q4_0', status: 'not-downloaded', active: false },
+    ])
+  })
+
   it('recommends from the supplied RAM figures without reading the host', async () => {
     const service = await harness()
     expect(service.recommend(16 * GB, 2 * GB)).toEqual({ kind: 'recommend', entry: CATALOG[1] })
@@ -77,8 +88,7 @@ describe('LocalModels', () => {
   it('downloads a model and persists downloading then ready records', async () => {
     const service = await harness()
     await service.startDownload('qwen3.5-0.8b-q4_0')
-    const domain = ctx.storageDomain.get('llm_local_models')
-    expect(domain?.table('models').get('qwen3.5-0.8b-q4_0')?.status).toBe('ready')
+    expect(service.listStatus().find(row => row.modelId === 'qwen3.5-0.8b-q4_0')?.status).toBe('ready')
     await expect(stat(join(modelsDir, 'qwen3.5-0.8b-q4_0.gguf'))).resolves.toBeTruthy()
   })
 
@@ -97,8 +107,9 @@ describe('LocalModels', () => {
     }
     const service = await harness({ download: slowDownload })
     await service.startDownload('qwen3.5-0.8b-q4_0')
-    const domain = ctx.storageDomain.get('llm_local_models')
-    expect(domain?.table('models').get('qwen3.5-0.8b-q4_0')?.status).toBe('ready')
+    const row = service.listStatus().find(entry => entry.modelId === 'qwen3.5-0.8b-q4_0')
+    expect(row?.status).toBe('ready')
+    expect(row?.downloadedBytes).toBe(CATALOG[0]!.sizeBytes)
     expect(progresses).toEqual([0, Math.floor(CATALOG[0]!.sizeBytes / 2), CATALOG[0]!.sizeBytes])
   })
 
@@ -134,8 +145,7 @@ describe('LocalModels', () => {
     const downloading = service.startDownload('qwen3.5-0.8b-q4_0')
     await service.cancelDownload('qwen3.5-0.8b-q4_0')
     await expect(downloading).rejects.toThrow()
-    const domain = ctx.storageDomain.get('llm_local_models')
-    expect(domain?.table('models').get('qwen3.5-0.8b-q4_0')).toBeUndefined()
+    expect(service.listStatus().find(row => row.modelId === 'qwen3.5-0.8b-q4_0')?.status).toBe('not-downloaded')
   })
 
   it('a failed download drops the record and the failure reaches the caller', async () => {
@@ -143,8 +153,7 @@ describe('LocalModels', () => {
       download: async () => { throw new Error('disk full') },
     })
     await expect(service.startDownload('qwen3.5-0.8b-q4_0')).rejects.toThrow('disk full')
-    const domain = ctx.storageDomain.get('llm_local_models')
-    expect(domain?.table('models').get('qwen3.5-0.8b-q4_0')).toBeUndefined()
+    expect(service.listStatus().find(row => row.modelId === 'qwen3.5-0.8b-q4_0')?.status).toBe('not-downloaded')
   })
 
   it('rejects downloads and activations of unknown model ids', async () => {
@@ -167,7 +176,7 @@ describe('LocalModels', () => {
     await service.setActive('qwen3.5-0.8b-q4_0')
     await service.deleteModel('qwen3.5-0.8b-q4_0')
     await expect(stat(join(modelsDir, 'qwen3.5-0.8b-q4_0.gguf'))).rejects.toThrow()
-    expect(ctx.storageDomain.get('llm_local_models')?.table('models').get('qwen3.5-0.8b-q4_0')).toBeUndefined()
+    expect(service.listStatus().find(row => row.modelId === 'qwen3.5-0.8b-q4_0')?.status).toBe('not-downloaded')
     expect(service.getActive()).toBeUndefined()
   })
 

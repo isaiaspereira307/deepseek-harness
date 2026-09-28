@@ -1,9 +1,5 @@
 import { CATALOG } from './catalog.ts'
-import type { ModelCatalogEntry } from './types.ts'
-
-export type Recommendation =
-  | { kind: 'recommend'; entry: ModelCatalogEntry }
-  | { kind: 'insufficient-ram'; floor: ModelCatalogEntry }
+import type { ModelCatalogEntry, Recommendation } from './types.ts'
 
 /**
  * Pick the largest catalog entry whose `minRamBytes` plus `safetyMarginBytes`

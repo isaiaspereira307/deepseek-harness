@@ -9,10 +9,9 @@ import { catalogEntry, CATALOG } from './catalog.ts'
 import { downloadModel } from './download.ts'
 import { createLocalSession } from './llama.ts'
 import { ensureModelsDir } from './paths.ts'
-import type { Recommendation } from './recommend.ts'
 import { recommendModel } from './recommend.ts'
 import { localModelsDomain } from './state.ts'
-import type { ModelCatalogEntry } from './types.ts'
+import type { ModelCatalogEntry, ModelStatusEntry, Recommendation } from './types.ts'
 
 /** Streams one catalog entry's `.gguf` file to its destination. */
 export type DownloadFn = (
@@ -100,6 +99,27 @@ export class LocalModels extends TypertRemoteService {
   @Remote
   listCatalog(): readonly ModelCatalogEntry[] {
     return CATALOG
+  }
+
+  /**
+   * Per-model client status: catalog order joined with the persisted record
+   * and the active id. A model with no record is `not-downloaded`.
+   * @returns one status row per catalog entry.
+   */
+  @Remote
+  listStatus(): readonly ModelStatusEntry[] {
+    const domain = this.requireDomain()
+    const active = domain.global.get().modelId
+    return CATALOG.map((entry) => {
+      const record = domain.table('models').get(entry.id)
+      const downloadingOrReady = record !== undefined
+      return {
+        modelId: entry.id,
+        status: record?.status === 'downloading' ? 'downloading' : downloadingOrReady ? 'ready' : 'not-downloaded',
+        active: active === entry.id,
+        ...record?.downloadedBytes === undefined ? {} : { downloadedBytes: record.downloadedBytes },
+      }
+    })
   }
 
   /**
@@ -223,7 +243,7 @@ export class LocalModels extends TypertRemoteService {
         },
       })
       await progressChain
-      await table.put(entry.id, { modelId: entry.id, status: 'ready' })
+      await table.put(entry.id, { modelId: entry.id, status: 'ready', downloadedBytes: entry.sizeBytes })
     } catch (error) {
       await table.delete(entry.id)
       throw error

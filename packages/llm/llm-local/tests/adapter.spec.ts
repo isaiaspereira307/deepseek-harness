@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
+import {
+  createAssistantMessage,
+  createSystemMessage,
+  createToolResultMessage,
+  createUserMessage,
+} from '@deepseek-ai/dsh-llm'
+import type { GenerateOptions, StreamChunk, ToolCallId } from '@deepseek-ai/dsh-llm'
 import { LocalLlamaAdapter } from '../src/adapter.ts'
 
 describe('LocalLlamaAdapter', () => {
@@ -65,11 +71,11 @@ describe('LocalLlamaAdapter', () => {
     })
     for await (const _chunk of adapter.stream(generateOptions({
       messages: [
-        { role: 'system', content: [{ type: 'text', text: 'system rules' }] },
-        { role: 'user', content: [{ type: 'text', text: 'question' }] },
-        { role: 'assistant', content: [{ type: 'text', text: 'answer' }] },
-        { role: 'tool', toolCallId: 'call-1' as never, source: { kind: 'tool' } as never, content: [{ type: 'text', text: 'result' }] },
-        { role: 'user', content: [{ type: 'text', text: 'follow up' }] },
+        createSystemMessage('system rules'),
+        createUserMessage({ content: [{ type: 'text', text: 'question' }], source: { kind: 'user' } }),
+        createAssistantMessage({ content: [{ type: 'text', text: 'answer' }], source: { provider: 'local', model: 'qwen3.5-0.8b-q4_0' } }),
+        createToolResultMessage({ callId: 'call-1' as ToolCallId, content: [{ type: 'text', text: 'result' }], isError: false }),
+        createUserMessage({ content: [{ type: 'text', text: 'follow up' }], source: { kind: 'user' } }),
       ],
     }))) { /* drain */ }
     expect(promptText).toBe('User: question\n\nAssistant: answer\n\nTool result: result\n\nUser: follow up')

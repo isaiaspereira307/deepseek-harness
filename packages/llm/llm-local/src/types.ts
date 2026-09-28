@@ -13,3 +13,20 @@ export interface ModelCatalogEntry {
   /** Rough total-RAM floor the model needs to run; recommendation input. */
   readonly minRamBytes: number
 }
+
+/** Recommendation outcome for one RAM figure. */
+export type Recommendation =
+  | { kind: 'recommend'; entry: ModelCatalogEntry }
+  | { kind: 'insufficient-ram'; floor: ModelCatalogEntry }
+
+/** One per-model status row the client renders. */
+export interface ModelStatusEntry {
+  /** Catalog model id. */
+  modelId: string
+  /** Download lifecycle state; `not-downloaded` when no record exists. */
+  status: 'not-downloaded' | 'downloading' | 'ready'
+  /** Persisted progress byte count, present once a download started. */
+  downloadedBytes?: number
+  /** Whether this model id is the currently active one. */
+  active: boolean
+}
