@@ -1,13 +1,13 @@
 /**
  * Local models settings store: one snapshot joining the Host model catalog
- * with each model's download state. The Host owns every fact, so rows are
- * re-derived from `listCatalog` and `listStatus` after each write. No pushed
- * event announces byte progress, so a poll timer runs only while a row is
- * downloading.
+ * with each model's download state and the Host's recommendation. The Host
+ * owns every fact, so rows are re-derived from `listCatalog`, `listStatus`,
+ * and `recommendedModel` after each write. No pushed event announces byte
+ * progress, so a poll timer runs only while a row is downloading.
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { ModelCatalogEntry, ModelStatusEntry } from '@deepseek-ai/dsh-llm-local/types'
+import type { ModelCatalogEntry, ModelStatusEntry, Recommendation } from '@deepseek-ai/dsh-llm-local/types'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
@@ -37,10 +37,16 @@ export interface LocalModelsState {
   error: string | null
   /** One row per catalog entry, in catalog order. */
   rows: readonly LocalModelRow[]
+  /** The Host's pick for this machine, or null before the Host answers. */
+  recommendation: Recommendation | null
 }
 
-/** What the first-run recommendation step needs to know about the section. */
-export type LocalModelsReadiness = 'loading' | 'needs-recommendation' | 'has-model'
+/**
+ * What the first-run recommendation step needs to know about the section.
+ * `unavailable` covers a failed load, so a step does not wait on a fact the
+ * Host refused to produce.
+ */
+export type LocalModelsReadiness = 'loading' | 'unavailable' | 'needs-recommendation' | 'has-model'
 
 /**
  * Join one catalog entry with its download state.
@@ -79,7 +85,7 @@ export interface LocalModelsController {
 export class LocalModelsStore implements LocalModelsController {
   /** The snapshot the section renders from (uSES-safe store). */
   readonly store: SnapshotStore<LocalModelsState> = createSnapshotStore<LocalModelsState>({
-    status: 'idle', error: null, rows: [],
+    status: 'idle', error: null, rows: [], recommendation: null,
   })
 
   /** Progress poll handle, present only while a row is downloading. */
@@ -172,24 +178,33 @@ export class LocalModelsStore implements LocalModelsController {
     if (!result.ok) this.store.update((state) => { state.error = result.error.message })
   }
 
-  /** Read both Host lists and publish the joined rows. */
+  /** Read the Host's three facts and publish the joined rows. */
   private async fetch(): Promise<void> {
-    const [catalog, status] = await Promise.all([
+    const [catalog, status, recommendation] = await Promise.all([
       this.ctx.remote.llmLocal.listCatalog(),
       this.ctx.remote.llmLocal.listStatus(),
+      this.ctx.remote.llmLocal.recommendedModel(),
     ])
-    if (!catalog.ok || !status.ok) {
-      const message = catalog.ok ? status.error.message : catalog.error.message
-      this.store.update((state) => { state.status = 'error'; state.error = message })
-      return
-    }
+    if (!catalog.ok) return this.fail(catalog.error.message)
+    if (!status.ok) return this.fail(status.error.message)
+    if (!recommendation.ok) return this.fail(recommendation.error.message)
     const byModelId = new Map(status.value.map(row => [row.modelId, row]))
     this.store.update((state) => {
       state.status = 'ready'
       state.error = null
       state.rows = catalog.value.map(entry => joinLocalModelRow(entry, byModelId.get(entry.id)))
+      state.recommendation = recommendation.value
     })
     this.convergePolling()
+  }
+
+  /**
+   * Publish a Host failure. Rows keep their last good values so a transient
+   * failure does not empty the section.
+   * @param message - the Host's failure text.
+   */
+  private fail(message: string): void {
+    this.store.update((state) => { state.status = 'error'; state.error = message })
   }
 
   /** Run the progress poll exactly while a row is downloading. */
@@ -206,10 +221,12 @@ export class LocalModelsStore implements LocalModelsController {
 /**
  * Project the section state for the first-run recommendation step.
  * @param state - the current section snapshot.
- * @returns `loading` before the first rows land, `needs-recommendation` while
- * no model is on disk, and `has-model` once one is ready, downloading, or in use.
+ * @returns `loading` before the first rows land, `unavailable` after a failed
+ * load, `needs-recommendation` while no model is on disk, and `has-model` once
+ * one is ready, downloading, or in use.
  */
 export function localModelsReadiness(state: LocalModelsState): LocalModelsReadiness {
+  if (state.status === 'error') return 'unavailable'
   if (state.status !== 'ready') return 'loading'
   if (state.rows.some(row => row.status !== 'not-downloaded')) return 'has-model'
   return 'needs-recommendation'

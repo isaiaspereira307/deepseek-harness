@@ -19,6 +19,13 @@ export const en = {
   removeConfirm: 'Delete',
   removeCancel: 'Keep model',
   close: 'Close',
+  firstRunTitle: 'Run a model on this device',
+  firstRunBody: '{name} ({size}) fits this device. Prompts and answers stay on it, and no API key is needed.',
+  firstRunRecommended: 'Recommended for this device',
+  firstRunLater: 'Not now',
+  firstRunMemoryTitle: 'This device is short on memory',
+  firstRunMemoryBody: 'The smallest model we offer needs {size} of memory, which this device does not have. Models on the cloud still work.',
+  firstRunContinue: 'Continue',
 } as const
 /** Local models locale keys. */
 export type LocalModelsKey = keyof typeof en
@@ -43,4 +50,11 @@ export const zh: Record<LocalModelsKey, string> = {
   removeConfirm: '删除',
   removeCancel: '保留模型',
   close: '关闭',
+  firstRunTitle: '在本机运行模型',
+  firstRunBody: '{name}（{size}）适合这台设备。提示词与回答都留在本机，无需 API 密钥。',
+  firstRunRecommended: '为这台设备推荐',
+  firstRunLater: '暂不',
+  firstRunMemoryTitle: '这台设备内存不足',
+  firstRunMemoryBody: '我们提供的最小模型需要 {size} 内存，这台设备无法满足。云端模型仍然可用。',
+  firstRunContinue: '继续',
 }

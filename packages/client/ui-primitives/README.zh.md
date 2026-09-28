@@ -51,6 +51,7 @@ kind: "package-library"
 | `DisclosureRow` | 24px 紧凑折叠行，标题与内容左右排列。使用浅层 prop 比较进行 memo；内容未变时，保持回调与 React 节点 prop 的引用稳定。 |
 | `Modal` | 页面遮罩之上的居中对话框。嵌套对话框可通过 `onKeyDownCapture` 在文档级 Escape 处理器之前拦截按键。 |
 | `RiskConfirmation` | 以显式复选框把关的敏感操作确认。 |
+| `OnboardingModal` | `settings.onboarding` 步骤使用的阻塞式对话框：应用根节点保持 inert，点击遮罩与按 Escape 都不会关闭它，步骤只能通过自己的操作离开。步骤没有表单控件时，`focusTitle` 会把焦点移到标题。 |
 | `OnboardingSurface` | 首次运行的引导舞台，期间保持应用根节点 inert。 |
 | `Tooltip` | 锚定在克隆子元素上的悬停文本；可通过 `portal` 渲染到外层，避免被容器裁剪，或受祖先层叠上下文限制其 z-index。 |
 | `HoverCard` | 指针可停留、可选中的悬停预览；可选带复制按钮。 |

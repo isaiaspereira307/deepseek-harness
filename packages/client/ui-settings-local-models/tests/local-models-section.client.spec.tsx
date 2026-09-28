@@ -35,7 +35,7 @@ function source(state: LocalModelsState): SnapshotStore<LocalModelsState> {
   return createSnapshotStore<LocalModelsState>(state)
 }
 
-const ready = (rows: readonly LocalModelRow[]): LocalModelsState => ({ status: 'ready', error: null, rows })
+const ready = (rows: readonly LocalModelRow[]): LocalModelsState => ({ status: 'ready', error: null, rows, recommendation: null })
 // The slot supplies the global seat in the application.
 const globals = {} as GlobalStandardProps
 
@@ -73,7 +73,7 @@ it('formats sizes and progress text from the row and the dictionary', () => {
 
 it('starts the first load when the section mounts', () => {
   const bound = controller()
-  const store = source({ status: 'idle', error: null, rows: [] })
+  const store = source({ status: 'idle', error: null, rows: [], recommendation: null })
   render(<LocalModelsSection {...globals} controller={bound}
     useLocalModels={selector => selector(store.getSnapshot())} t={translate(en)} />)
   expect(bound.load).toHaveBeenCalled()
@@ -103,7 +103,7 @@ it('activates a downloaded model', () => {
 })
 
 it('reports a failed action above the rows it kept', () => {
-  const store = source({ status: 'ready', error: 'download rejected', rows: [SMALL] })
+  const store = source({ status: 'ready', error: 'download rejected', rows: [SMALL], recommendation: null })
   render(<LocalModelsSection {...globals} controller={controller()}
     useLocalModels={selector => selector(store.getSnapshot())} t={translate(en)} />)
   expect(screen.getByRole('alert').textContent).toBe('download rejected')
@@ -112,7 +112,7 @@ it('reports a failed action above the rows it kept', () => {
 
 it('offers a retry instead of rows when the load failed', () => {
   const bound = controller()
-  const store = source({ status: 'error', error: 'catalog offline', rows: [] })
+  const store = source({ status: 'error', error: 'catalog offline', rows: [], recommendation: null })
   render(<LocalModelsSection {...globals} controller={bound}
     useLocalModels={selector => selector(store.getSnapshot())} t={translate(en)} />)
   expect(screen.getByRole('alert').textContent).toBe('Could not load local models: catalog offline')

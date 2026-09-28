@@ -8,22 +8,15 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { LocalModelRow, LocalModelsController, LocalModelsState } from './store.ts'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { LocalModelRow } from './store.ts'
+import type { LocalModelsInjected } from './faces.ts'
 import type { en } from './locales.ts'
 import styles from './LocalModelsSection.module.css'
 
-/** Injected dependencies of {@link LocalModelsSection} (slot `inject`). */
-export interface LocalModelsSectionInjected {
-  /** The section's load and mutation surface. */
-  controller: LocalModelsController
-  /** Section snapshot, bound by the UI renderer as `useLocalModels`. */
-  hooks: { localModels: HostObservable<LocalModelsState> }
-}
-
 /** Composed local models section props. */
 export type LocalModelsSectionProps =
-  PropsRuntime<'settings.section'> & PropsLocale<'settings.localModels'> & InjectFace<LocalModelsSectionInjected>
+  PropsRuntime<'settings.section'> & PropsLocale<'settings.localModels'> & InjectFace<LocalModelsInjected>
 
 /** Localized copy of this section. */
 type Copy = (key: keyof typeof en) => string

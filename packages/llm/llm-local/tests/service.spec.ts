@@ -44,6 +44,12 @@ vi.mock('node-llama-cpp', () => ({
   },
   QwenChatWrapper: function QwenChatWrapper() { /* the chat template the spike pinned */ },
 }))
+/** Total RAM the Host reads; a spec pins it instead of trusting the runner's memory. */
+const hostRam = vi.hoisted(() => ({ total: 0 }))
+vi.mock('node:os', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:os')>()
+  return { ...actual, totalmem: () => hostRam.total }
+})
 import type { Domain } from '@deepseek-ai/dsh-storage-domain'
 import { CATALOG } from '../src/catalog.ts'
 import { localModelsDomain } from '../src/state.ts'
@@ -137,10 +143,12 @@ describe('LocalModels', () => {
     expect(chunks.filter(chunk => chunk.type === 'text-delta').map(chunk => chunk.text)).toEqual(['local answer'])
   })
 
-  it('recommends from the supplied RAM figures without reading the host', async () => {
+  it('recommends from the machine memory the Host reads, above the configured margin', async () => {
     const service = await harness()
-    expect(service.recommend(16 * GB, 2 * GB)).toEqual({ kind: 'recommend', entry: CATALOG[1] })
-    expect(service.recommend(1 * GB, 1 * GB)).toEqual({ kind: 'insufficient-ram', floor: CATALOG[0] })
+    hostRam.total = 16 * GB
+    expect(service.recommendedModel()).toEqual({ kind: 'recommend', entry: CATALOG[1] })
+    hostRam.total = 1 * GB
+    expect(service.recommendedModel()).toEqual({ kind: 'insufficient-ram', floor: CATALOG[0] })
   })
 
   it('downloads a model and persists downloading then ready records', async () => {

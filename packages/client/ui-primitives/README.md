@@ -51,6 +51,7 @@ Check this table before writing a control in a feature package. A plugin cannot 
 | `DisclosureRow` | 24px compact disclosure that lays title and content side by side. Memoized with shallow prop comparison; keep callbacks and React-node props stable when their content is unchanged. |
 | `Modal` | Centered dialog over a page mask. A nested dialog can intercept keys with `onKeyDownCapture` before document Escape handlers. |
 | `RiskConfirmation` | Sensitive action gated behind an explicit checkbox. |
+| `OnboardingModal` | Blocking dialog for a `settings.onboarding` step: the application root stays inert and mask clicks and Escape do not dismiss it, so a step leaves only through its own action. `focusTitle` moves focus to the title for a step with no form control. |
 | `OnboardingSurface` | First-run stage that holds the application root inert. |
 | `Tooltip` | Hover text anchored to a cloned child; optional `portal` rendering escapes clipping containers and ancestor stacking contexts that cap the bubble's z-index. |
 | `HoverCard` | Hover preview the pointer can rest on and select from; optional copy button. |

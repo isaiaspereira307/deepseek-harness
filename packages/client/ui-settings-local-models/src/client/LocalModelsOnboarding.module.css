@@ -1,0 +1,12 @@
+.body {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  line-height: 22px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}

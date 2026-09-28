@@ -1,4 +1,5 @@
 import { rm, stat } from 'node:fs/promises'
+import { totalmem } from 'node:os'
 import { join } from 'node:path'
 import { Service, type Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -121,14 +122,14 @@ export class LocalModels extends TypertRemoteService {
   }
 
   /**
-   * Recommend the largest model whose footprint plus margin fits the supplied RAM.
-   * @param totalRamBytes - total RAM of the target machine, `os.totalmem()`.
-   * @param safetyMarginBytes - headroom kept free above the model's footprint.
-   * @returns the recommended entry, or the floor when nothing fits.
+   * The model this machine can run: the largest catalog entry whose footprint
+   * plus the configured margin fits the machine's total RAM. Callers learn the
+   * machine's memory from the Host, which is the only side that can read it.
+   * @returns the recommended entry, or the floor when no entry fits.
    */
   @Remote
-  recommend(totalRamBytes: number, safetyMarginBytes: number): Recommendation {
-    return recommendModel(totalRamBytes, safetyMarginBytes)
+  recommendedModel(): Recommendation {
+    return recommendModel(totalmem(), this.config.ramSafetyMarginBytes)
   }
 
   /**
