@@ -30,6 +30,9 @@
     "paths": {
       "@deepseek-ai/dsh-client-ui-settings-account": ["./packages/client/ui-settings-account/src/index.ts"],
       "@deepseek-ai/dsh-client-ui-settings-account/client": ["./packages/client/ui-settings-account/src/client/index.ts"],
+      "@deepseek-ai/dsh-client-ui-settings-local-models": ["./packages/client/ui-settings-local-models/src/index.ts"],
+      "@deepseek-ai/dsh-client-ui-settings-local-models/client": ["./packages/client/ui-settings-local-models/src/client/index.ts"],
+      "@deepseek-ai/dsh-llm-local/types": ["./packages/llm/llm-local/src/types.ts"],
       "@deepseek-ai/dsh-api-gateway/stream-protocol": ["./packages/api/gateway/src/stream-protocol.ts"],
       "@deepseek-ai/dsh-api-account-controller": ["./packages/api/account-controller/src/index.ts"],
       "@deepseek-ai/dsh-api-account-controller/types": ["./packages/api/account-controller/src/types.ts"],

@@ -1,0 +1,46 @@
+/** Local models settings copy, owned by the local-models feature. */
+export const en = {
+  nav: 'Local models',
+  description: 'Run a model on this device. Prompts and answers never leave it.',
+  loadFailed: 'Could not load local models',
+  retry: 'Retry',
+  statusNotDownloaded: 'Not downloaded',
+  statusDownloading: 'Downloading {percent}%',
+  statusReady: 'Ready',
+  statusActive: 'In use',
+  download: 'Download',
+  cancel: 'Cancel',
+  activate: 'Use this model',
+  remove: 'Delete',
+  sizeGb: '{value} GB',
+  sizeMb: '{value} MB',
+  removeTitle: 'Delete {name}?',
+  removeBody: 'The model file is removed from this device. You can download it again later.',
+  removeConfirm: 'Delete',
+  removeCancel: 'Keep model',
+  close: 'Close',
+} as const
+/** Local models locale keys. */
+export type LocalModelsKey = keyof typeof en
+/** Chinese local models settings copy. */
+export const zh: Record<LocalModelsKey, string> = {
+  nav: '本地模型',
+  description: '在本机运行模型，提示词与回答都不会离开这台设备。',
+  loadFailed: '无法加载本地模型',
+  retry: '重试',
+  statusNotDownloaded: '未下载',
+  statusDownloading: '正在下载 {percent}%',
+  statusReady: '已就绪',
+  statusActive: '使用中',
+  download: '下载',
+  cancel: '取消',
+  activate: '使用该模型',
+  remove: '删除',
+  sizeGb: '{value} GB',
+  sizeMb: '{value} MB',
+  removeTitle: '删除 {name}？',
+  removeBody: '模型文件会从本机移除，之后可以重新下载。',
+  removeConfirm: '删除',
+  removeCancel: '保留模型',
+  close: '关闭',
+}

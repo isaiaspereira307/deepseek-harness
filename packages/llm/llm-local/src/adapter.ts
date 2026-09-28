@@ -1,5 +1,5 @@
 import { LlmAdapter } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions, LlmResolvedModelInfo, RequestMessage, StreamChunk, TextBlock } from '@deepseek-ai/dsh-llm'
+import type { GenerateOptions, LlmResolvedModelInfo, Message, RequestMessage, StreamChunk, TextBlock } from '@deepseek-ai/dsh-llm'
 
 /** A loaded model's chat surface; the seam this adapter drives, kept narrow for testing. */
 export interface LocalSession {
@@ -11,6 +11,7 @@ export interface LocalSession {
   promptStreaming(text: string, opts: LocalPromptOptions): AsyncIterable<string>
 }
 
+/** Per-request generation controls handed to the local runtime. */
 export interface LocalPromptOptions {
   /** Aborts the generation; partial text is discarded. */
   signal?: AbortSignal
@@ -18,6 +19,11 @@ export interface LocalPromptOptions {
   maxTokens?: number
 }
 
+/**
+ * The seams the adapter needs from the local runtime: where a model id's file
+ * lives, how to open a chat session for it, and the output cap to use when a
+ * request omits one.
+ */
 export interface LocalLlamaAdapterOptions {
   /** Resolve a catalog model id to its `.gguf` file path. */
   resolveModelPath(model: string): string
@@ -86,12 +92,15 @@ function leadingSystemText(messages: readonly RequestMessage[]): string | undefi
 /** Render non-system messages as `Role: text` paragraphs, the stable local wire format. */
 function renderTurns(messages: readonly RequestMessage[]): string {
   const turns = messages
-    .filter(message => message.role !== 'system')
-    .map(message => `${ROLE_LABEL[message.role] ?? ''}${textOf(message)}`)
+    .filter((message): message is TurnMessage => message.role !== 'system')
+    .map(message => `${ROLE_LABEL[message.role]}${textOf(message)}`)
   return turns.join('\n\n')
 }
 
-const ROLE_LABEL: Record<string, string> = {
+/** A request message that carries turn text; the system message is the session prompt. */
+type TurnMessage = Exclude<RequestMessage, { readonly role: 'system' }>
+
+const ROLE_LABEL: Record<Exclude<Message['role'], 'system'>, string> = {
   user: 'User: ',
   assistant: 'Assistant: ',
   tool: 'Tool result: ',

@@ -1,5 +1,11 @@
 import type { ModelCatalogEntry } from './types.ts'
 
+/**
+ * Every model this package will download or load, with the repository
+ * filename, sha256, and byte size the downloader verifies. An id absent from
+ * this list is not a local model: the service reports it as unavailable rather
+ * than fetching an unreviewed file.
+ */
 export const CATALOG: readonly ModelCatalogEntry[] = [
   {
     id: 'qwen3.5-0.8b-q4_0',

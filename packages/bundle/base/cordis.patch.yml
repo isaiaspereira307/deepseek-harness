@@ -523,3 +523,9 @@
     # choice.
     - id: llm-deepseek
       name: '@deepseek-ai/dsh-llm-deepseek'
+
+    # The on-device Qwen3.5 provider. It downloads cataloged GGUF weights on
+    # demand into its models directory and streams CPU-only inference, so the
+    # `local:` route answers only after a user activates a downloaded model.
+    - id: llm-local
+      name: '@deepseek-ai/dsh-llm-local'

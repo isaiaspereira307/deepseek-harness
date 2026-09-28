@@ -114,6 +114,28 @@ describe('LocalLlamaAdapter', () => {
     expect(resolved.provider).toBe('local')
     expect(resolved.id).toBe('qwen3.5-0.8b-q4_0')
   })
+  it('resolves without an output cap when the local runtime declares none', async () => {
+    const adapter = new LocalLlamaAdapter({
+      resolveModelPath: () => '/fake/path.gguf',
+      loadSession: async () => ({ promptStreaming: async function* () { yield 'x' } }),
+    })
+    expect(await adapter.resolveModel('local', 'qwen3.5-0.8b-q4_0')).toEqual({
+      provider: 'local', id: 'qwen3.5-0.8b-q4_0', name: 'qwen3.5-0.8b-q4_0',
+    })
+  })
+
+  it('sends no session prompt when the system message carries no text', async () => {
+    const loaded: Array<string | undefined> = []
+    const adapter = new LocalLlamaAdapter({
+      resolveModelPath: () => '/fake/path.gguf',
+      loadSession: async (_modelPath, systemPrompt) => {
+        loaded.push(systemPrompt)
+        return { promptStreaming: async function* () { yield 'ok' } }
+      },
+    })
+    for await (const _chunk of adapter.stream(generateOptions({ messages: [createSystemMessage('')] }))) { /* drain */ }
+    expect(loaded).toEqual([undefined])
+  })
 })
 
 function generateOptions(overrides?: Partial<GenerateOptions>): GenerateOptions {

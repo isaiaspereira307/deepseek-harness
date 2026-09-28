@@ -73,10 +73,8 @@ export class LocalModels extends TypertRemoteService {
     super(ctx, 'llmLocal')
   }
 
-  /** The file download implementation; tests substitute a fake by overriding. */
-  protected get download(): DownloadFn {
-    return downloadModel
-  }
+  /** The file download implementation; tests substitute a fake by overriding the field. */
+  protected downloadModelFn: DownloadFn = downloadModel
 
   protected async [Service.init](): Promise<void> {
     await ensureModelsDir(this.config.modelsDir)
@@ -231,7 +229,7 @@ export class LocalModels extends TypertRemoteService {
     let lastRecorded = 0
     let progressChain: Promise<void> = Promise.resolve()
     try {
-      await this.download(entry, join(this.config.modelsDir, `${entry.id}.gguf`), {
+      await this.downloadModelFn(entry, join(this.config.modelsDir, `${entry.id}.gguf`), {
         signal,
         onProgress: (bytes) => {
           if (bytes - lastRecorded < threshold && bytes !== entry.sizeBytes) return

@@ -16,10 +16,40 @@ import {
   inject as storageDomainInject,
   name as storageDomainName,
 } from '@deepseek-ai/dsh-storage-domain'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+/** The native runtime the local route loads; the spike pinned CPU-only inference. */
+const native = vi.hoisted(() => ({ modelPath: '', contextSize: 0, gpu: undefined as boolean | undefined, systemPrompt: undefined as string | undefined }))
+vi.mock('node-llama-cpp', () => ({
+  getLlama: (options: { gpu: boolean }) => {
+    native.gpu = options.gpu
+    return Promise.resolve({
+      loadModel: ({ modelPath }: { modelPath: string }) => {
+        native.modelPath = modelPath
+        return Promise.resolve({
+          createContext: ({ contextSize }: { contextSize: number }) => {
+            native.contextSize = contextSize
+            return { getSequence: () => ({}) }
+          },
+        })
+      },
+    })
+  },
+  LlamaChatSession: class {
+    constructor(options: { systemPrompt?: string }) { native.systemPrompt = options.systemPrompt }
+    prompt(_text: string, options: { onTextChunk?: (chunk: string) => void }): Promise<void> {
+      options.onTextChunk?.('local answer')
+      return Promise.resolve()
+    }
+  },
+  QwenChatWrapper: function QwenChatWrapper() { /* the chat template the spike pinned */ },
+}))
+import type { Domain } from '@deepseek-ai/dsh-storage-domain'
 import { CATALOG } from '../src/catalog.ts'
+import { localModelsDomain } from '../src/state.ts'
 import { LocalModels } from '../src/service.ts'
 import type { DownloadFn } from '../src/service.ts'
+import type { StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { ModelCatalogEntry } from '../src/types.ts'
 
 const GB = 1024 ** 3
@@ -54,9 +84,7 @@ describe('LocalModels', () => {
       opts.onProgress?.(entry.sizeBytes)
     })
     class TestService extends LocalModels {
-      protected override get download(): typeof fakeDownload {
-        return fakeDownload
-      }
+      protected override downloadModelFn: DownloadFn = fakeDownload
     }
     await ctx.plugin(TestService, { modelsDir, ramSafetyMarginBytes: 2 * GB, contextSize: 8192 })
     return ctx.llmLocal
@@ -77,6 +105,36 @@ describe('LocalModels', () => {
       { modelId: 'qwen3.5-0.8b-q4_0', status: 'ready', downloadedBytes: CATALOG[0]!.sizeBytes, active: true },
       { modelId: 'qwen3.5-4b-q4_0', status: 'not-downloaded', active: false },
     ])
+  })
+
+  it('reports a row as downloading while the download is in flight', async () => {
+    let finish: (() => void) | undefined
+    const service = await harness({
+      download: async () => {
+        await new Promise<void>((resolve) => { finish = resolve })
+      },
+    })
+    const downloading = service.startDownload('qwen3.5-0.8b-q4_0')
+    await vi.waitFor(() => {
+      expect(service.listStatus().find(row => row.modelId === 'qwen3.5-0.8b-q4_0')?.status).toBe('downloading')
+    })
+    finish?.()
+    await downloading
+  })
+
+  it('serves the local route from the model file under modelsDir, CPU-only', async () => {
+    await harness()
+    const chunks: StreamChunk[] = []
+    for await (const chunk of ctx.llm.stream({
+      provider: 'local',
+      model: 'qwen3.5-0.8b-q4_0',
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
+    })) chunks.push(chunk)
+    expect(native.gpu).toBe(false)
+    expect(native.modelPath).toBe(join(modelsDir, 'qwen3.5-0.8b-q4_0.gguf'))
+    expect(native.contextSize).toBe(8192)
+    expect(native.systemPrompt).toBeUndefined()
+    expect(chunks.filter(chunk => chunk.type === 'text-delta').map(chunk => chunk.text)).toEqual(['local answer'])
   })
 
   it('recommends from the supplied RAM figures without reading the host', async () => {
@@ -178,6 +236,85 @@ describe('LocalModels', () => {
     await expect(stat(join(modelsDir, 'qwen3.5-0.8b-q4_0.gguf'))).rejects.toThrow()
     expect(service.listStatus().find(row => row.modelId === 'qwen3.5-0.8b-q4_0')?.status).toBe('not-downloaded')
     expect(service.getActive()).toBeUndefined()
+  })
+
+  it('passes a caller signal into the download alongside the service abort', async () => {
+    let seen: AbortSignal | undefined
+    const service = await harness({
+      download: async (_entry, _destPath, opts) => {
+        seen = opts.signal
+      },
+    })
+    const caller = new AbortController()
+    await service.startDownload('qwen3.5-0.8b-q4_0', caller.signal)
+    expect(seen?.aborted).toBe(false)
+    const serviceAbort = new AbortController()
+    serviceAbort.abort()
+    expect(seen?.aborted).toBe(false)
+    caller.abort()
+    expect(seen?.aborted).toBe(true)
+  })
+
+  it('cancelDownload resolves without effect when the model is not downloading', async () => {
+    const service = await harness()
+    await expect(service.cancelDownload('qwen3.5-0.8b-q4_0')).resolves.toBeUndefined()
+  })
+
+  it('cancelDownload logs a download failure that is not the abort', async () => {
+    const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
+    const service = await harness({
+      download: async (_entry, _destPath, opts) => {
+        // The abort may land before the body starts; either way the download
+        // fails with its own error, which cancelDownload must log rather than
+        // mistake for the cancellation it asked for.
+        await new Promise<never>((_resolve, reject) => {
+          const fail = () => { reject(new Error('network reset')) }
+          if (opts.signal?.aborted === true) fail()
+          else opts.signal?.addEventListener('abort', fail, { once: true })
+        })
+      },
+    })
+    const downloading = service.startDownload('qwen3.5-0.8b-q4_0')
+    await service.cancelDownload('qwen3.5-0.8b-q4_0')
+    await expect(downloading).rejects.toThrow('network reset')
+    expect(warn).toHaveBeenCalled()
+  })
+
+  it('deleteModel keeps the active id when another model is deleted', async () => {
+    const service = await harness()
+    await service.startDownload('qwen3.5-0.8b-q4_0')
+    await service.setActive('qwen3.5-0.8b-q4_0')
+    await service.deleteModel('qwen3.5-4b-q4_0')
+    expect(service.getActive()).toBe('qwen3.5-0.8b-q4_0')
+  })
+
+  it('setActive surfaces a models directory it cannot read', async () => {
+    const service = await harness()
+    await rm(modelsDir, { recursive: true, force: true })
+    await writeFile(modelsDir, 'not a directory')
+    await expect(service.setActive('qwen3.5-0.8b-q4_0')).rejects.toThrow()
+    await rm(modelsDir, { force: true })
+  })
+
+  it('fails loud when a Remote runs before the service is initialized', async () => {
+    const service = new LocalModels(ctx, { modelsDir, ramSafetyMarginBytes: 2 * GB, contextSize: 8192 })
+    expect(() => service.listStatus()).toThrow('not initialized')
+  })
+
+  it('finishes the download when a progress write fails', async () => {
+    const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
+    const service = await harness()
+    const domain = ctx.storageDomain.get(localModelsDomain.name) as Domain<typeof localModelsDomain>
+    const table = domain.table('models')
+    const put = table.put.bind(table)
+    // The first put opens the record; the second is the progress write.
+    vi.spyOn(table, 'put')
+      .mockImplementationOnce(put)
+      .mockImplementationOnce(async () => { throw new Error('storage offline') })
+      .mockImplementation(put)
+    await service.startDownload('qwen3.5-0.8b-q4_0')
+    expect(warn).toHaveBeenCalled()
+    expect(service.listStatus().find(row => row.modelId === 'qwen3.5-0.8b-q4_0')?.status).toBe('ready')
   })
 
   it('deleteModel refuses while the model is downloading', async () => {

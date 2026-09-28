@@ -16,6 +16,7 @@ English | [中文](README.zh.md)
 - [Use this package](#use-this-package)
 - [Model Experience](#model-experience)
 - [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
 
 -----
 
@@ -69,3 +70,17 @@ Each request loads the model fresh and builds one context of `contextSize` token
 - **No usage accounting** — the adapter emits no `usage` chunk, so token metering attributes no cost to `local` requests.
 - **No resumable downloads** — a failed or cancelled download restarts from zero (spec out-of-scope decision).
 - **CPU-only inference** — `gpu: false` is pinned; the vulkan backend hung on init in the spike environment and GPU offload is out of scope.
+
+<a id="dev-note"></a>
+### Dev Note
+
+<details>
+<summary>Working context for maintainers — click to expand</summary>
+
+`node-llama-cpp` is loaded lazily: the plugin constructs without the native addon, and the first request that needs weights loads it. Keep the catalog in `src/catalog.ts` the single source for the two published variants; a new variant needs its published Hugging Face LFS oid, its `minRamBytes`, and a checksum the download verifies before the atomic rename.
+
+The route is fixed and credential-free, so this package registers no settings section and no credential store entry. Its client half is [@deepseek-ai/dsh-client-ui-settings-local-models](../../client/ui-settings-local-models/README.md).
+
+</details>
+
+**Runtime invariant:** No companion is published. The service owns its catalog, download records, and active-model pointer, and every reader of those values reaches them through the service's own methods.

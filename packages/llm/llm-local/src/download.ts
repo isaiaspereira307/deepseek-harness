@@ -13,6 +13,7 @@ export class ChecksumMismatchError extends Error {
   }
 }
 
+/** Progress and cancellation hooks for one download. */
 export interface DownloadOptions {
   /** Called with the cumulative downloaded byte count after each chunk. */
   onProgress?: (downloadedBytes: number) => void
@@ -56,6 +57,8 @@ export async function downloadModel(
   } catch (error) {
     // The body loop's throw leaves the handle open; a cleanup close can only
     // fail on an already-destroyed handle and must not mask the download error.
+    /* v8 ignore next -- closing a still-open handle fails only when the filesystem
+       itself fails, and that failure is not the one the caller asked about */
     await handle.close().catch(() => undefined)
     await rm(tempPath, { force: true })
     throw error

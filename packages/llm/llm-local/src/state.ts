@@ -11,7 +11,9 @@ const activeRecordSchema = z.object({
   modelId: z.string().optional(),
 })
 
+/** Durable record for one catalog entry that started downloading. */
 export type ModelRecord = z.infer<typeof modelRecordSchema>
+/** Durable record naming the active model, or none when the host has no local model active. */
 export type ActiveModelRecord = z.infer<typeof activeRecordSchema>
 
 /**
